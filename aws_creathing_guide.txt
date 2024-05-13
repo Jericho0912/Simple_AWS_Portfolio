@@ -1,0 +1,25 @@
+# name of the IoT Device Thing
+# change this to what you want
+THING_NAME=iot_shadow_test
+ 
+# create the thing
+aws iot create-thing --thing-name ${THING_NAME} | tee create-thing.json
+ 
+# create and download the keys and device certificate
+aws iot create-keys-and-certificate --certificate-pem-outfile ${THING_NAME}-certificate.crt.pem --public-key-outfile ${THING_NAME}-public.key.pem --private-key-outfile ${THING_NAME}-private.key.pem --set-as-active | tee create-keys-and-certificate.json
+ 
+# create the thing policy
+aws iot create-policy --policy-name ${THING_NAME}_all_access --policy-document '{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": ["iot:*"], "Resource": ["*"]}]}'
+
+# attach the certificate to the thing
+CERT_ARN=$(jq -r '.certificateArn' < create-keys-and-certificate.json)
+aws iot attach-thing-principal --thing-name ${THING_NAME} --principal ${CERT_ARN}
+ 
+# attach policy to the certificate
+aws iot attach-policy --policy-name ${THING_NAME}_all_access --target ${CERT_ARN}
+ 
+# download the amazon root ca
+wget https://www.amazontrust.com/repository/AmazonRootCA1.pem
+ 
+# find out what endpoint we need to connect to
+aws iot describe-endpoint --endpoint-type iot:Data-ATS | tee describe-endpoint.json
